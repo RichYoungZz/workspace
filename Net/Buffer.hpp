@@ -6,7 +6,8 @@
 
 namespace HumbleServer {
 
-/**该字符串只是作为往外发送和往内接收数据的缓冲区
+/**
+*  @brief 该字符串只是作为往外发送和往内接收数据的缓冲区。可以理解成一个功能更多的string而已【变量类】
 *  1.每个TcpConnection对象对应一个fd的连接，而每个TcpConnection对象对应两个Buffer对象，分别对应读和写。
 *  2.这个缓冲区的读和写并非对fd的数据读写，而是对当前缓冲区的vector进行写入和读取。
 *  3.其实是有先后关系的，先往缓冲区里面写，缓冲区里面有数据了，才能读取。
@@ -18,11 +19,11 @@ public:
     ~Buffer() = default;
     int writeToFd(int fd); //将缓冲区数据往fd里面发送
     int readFromFd(int fd); //从fd里面读取
-    void append(const char* data, size_t len); //往缓冲区里面添加数据，与readFromFd配合使用，这里面会集成扩容策略
+    int append(const char* data, size_t len); //往缓冲区里面添加数据，与readFromFd配合使用，这里面会集成扩容策略
     int clearBuffer(); //清空缓冲区
 
 //变量
-public:
+private:
     std::vector<char> buffer_;
     //每次更新变量，直接用就好，不需要调用函数计算
     size_t readStartIndex_; // [readStartIndex_, writeEndIndex_)是有效数据，待取出来待发送的，左闭右开
@@ -33,7 +34,7 @@ public:
     *  readStartIndex_          writeStartIndex_          buffer_.size()
     * ----为有效数据，待取出来待发送的，****也就是writeStartIndex_和buffer_.size()之间的部分是空闲的，可以随意填充
     */
-}
+};
 
 }
 
@@ -106,9 +107,9 @@ int HumbleServer::Buffer::readFromFd(int fd) {
 * @brief 往缓冲区里面添加数据，与readFromFd配合使用，这里面会集成扩容策略
 * @param data 数据的首地址 
 * @param len 数据的长度
-* @return void
+* @return int 成功返回Success，失败返回Error
 */
-void HumbleServer::Buffer::append(const char* data, size_t len) {
+int HumbleServer::Buffer::append(const char* data, size_t len) {
     if(len <= 0 || data == nullptr) return;
     if(len + writeStartIndex_ <= buffer_.size()) {
         ///memcpy只是单纯复制字节，copy函数会调用构造和析构，可以让资源有完整生命周期，当然char的话都无所谓
@@ -122,6 +123,7 @@ void HumbleServer::Buffer::append(const char* data, size_t len) {
         memcpy(buffer_.begin() + writeStartIndex_, data, len);
         writeStartIndex_ += len; //更新游标
     }
+    return Success;
 }
 
 /**

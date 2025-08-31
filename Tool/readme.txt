@@ -1,0 +1,1 @@
+/Tool/路径下面会存放一些实用工具，包括例如可以手写map、string、vector或者shared_ptr等工具，没问题的话可以取代掉std::map、std::string、std::vector等工具。

@@ -20,6 +20,7 @@
 #include "TimeStamp.hpp"
 
 /**
+* @brief EventLoop类，事件循环类，管理一个EpollPoller和多个Channel
 1. epoll系统接口的多线程风险
 线程安全风险：epoll操作（如epoll_wait和epoll_ctl）本身不是线程安全的。如果多个线程并发调用这些接口（例如，一个线程正在执行epoll_wait监控事件，另一个线程调用epoll_ctl添加或修改文件描述符），可能导致竞态条件。这包括：
 事件丢失或重复：并发修改epoll实例的内部状态（如epoll的interest list）可能导致事件未被正确处理，例如新添加的fd事件被遗漏或已移除的fd事件仍被触发。
@@ -37,14 +38,17 @@ public:
     ~EventLoop() = default;
 
     void loop(); //事件循环
-    void updateChannel(Channel* channel, int cmd); //更新Channel到epoll
+    int updateChannel(std::shared_ptr<Channel> channel, int cmd); //更新Channel到epoll
 
     int runInLoop(EventCallback cb); //在当前线程的EventLoop中执行cb
 
-    int handleRead(TimeStamp receiveTime); //处理唤醒事件 这里是被其他线程唤醒的时候，从EpollPoller的poll中跳出，执行callback_里的函数，不读的话会一直被唤醒
-    void wakeup(); //唤醒EventLoop
+    int handleRead(TimeStamp now); //处理唤醒事件 这里是被其他线程唤醒的时候，从EpollPoller的poll中跳出，执行callback_里的函数，不读的话会一直被唤醒
+    int wakeup(); //唤醒EventLoop
+
+    int  getThreadId() const { return threadId_; } //获取线程ID
+    bool isInLoopThread() const { return threadId_ == t_threadIdInThisThread; } //判断当前线程是否是EventLoop所在的线程
 //变量
-public:
+private:
     int wakeUpFd_; //eventfd句柄 用于EventLoop间通信
     int status; //loop状态
     std::unique_ptr<EpollPoller> poller_; //epoll事件监听器
@@ -56,7 +60,7 @@ public:
     std::mutex mutex_; //互斥锁 对于callbacks_的访问，其他线程添加，本线程处理。可以理解成读写事件，无法避免的需要加锁
 
     int threadId_; //线程ID，用于判断当前EventLoop是否运行在对应的线程中
-}
+};
 
 }
 
@@ -75,7 +79,7 @@ HumbleServer::EventLoop::EventLoop()
 
     wakeUpFd_  = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC); //创建eventfd
     wakeUpFdChannel_ = std::make_unique<Channel>(std::make_shared<Socket>(wakeUpFd_)); //创建eventfd对应的channel
-    wakeUpFdChannel_->setEventHandler(EventType_Read, std::bind(&EventLoop::handleRead, this, std::placeholders::_1)); //设置eventfd对应的channel的回调函数
+    wakeUpFdChannel_->setEventHandler(EPOLLIN, std::bind(&EventLoop::handleRead, this, std::placeholders::_1)); //设置eventfd对应的channel的回调函数
 
     poller_ = std::make_unique<EpollPoller>(this); //创建epoll事件监听器
 
@@ -104,7 +108,7 @@ void HumbleServer::EventLoop::loop()
     while(status == EventLoopStatus_Running)
     {
         activeChannels_.clear();
-        poller_->poll(activeChannels_, 10000); //阻塞等待事件发生，最多等待10s
+        poller_->poll(&activeChannels_, 10000); //阻塞等待事件发生，最多等待10s
         for(Channel* channel: activeChannels_)
         {
             channel->handleEvent(); //处理事件
@@ -124,7 +128,7 @@ void HumbleServer::EventLoop::loop()
         }
         for(EventCallback& cb: tempCallbacks)
         {
-            cb();
+            cb(nullptr);
         }
         tempCallbacks.clear();
     }
@@ -135,9 +139,10 @@ void HumbleServer::EventLoop::loop()
 * @param channel 需要更新的Channel
 * @param cmd 操作类型 EPOLL_CTL_ADD添加 EPOLL_CTL_MOD修改  EPOLL_CTL_DEL删除
 */
-void HumbleServer::EventLoop::updateChannel(Channel* channel, int cmd)
+int HumbleServer::EventLoop::updateChannel(std::shared_ptr<HumbleServer::Channel> channel, int cmd)
 {
     poller_->updateChannel(channel, cmd);
+    return Success;
 }
 
 /**
@@ -162,13 +167,13 @@ int HumbleServer::EventLoop::runInLoop(EventCallback cb)
         }
         wakeup(); //唤醒EventLoop
     }
-    return FunctionResultType_Success;
+    return Success;
 }
 
 /**
 * @brief 唤醒EventLoop处理事件，也就是向对应EventLoop的wakeUpFd_发送信号，使其从EpollPoller的poll中跳出，执行callback_里的函数
 */
-void HumbleServer::EventLoop::wakeup()
+int HumbleServer::EventLoop::wakeup()
 {
     uint64_t one = 1;
     ssize_t n = ::write(wakeUpFd_, &one, sizeof(one)); //向wakeUpFd_写入一个字节
@@ -176,13 +181,14 @@ void HumbleServer::EventLoop::wakeup()
     {
         printf("EventLoop::wakeup() writes %lld bytes instead of 8, error\n", n);
     }
+    return Success;
 }
 
 /**
 * @brief 处理唤醒事件，被唤醒以后及时读出数据，防止被多次唤醒
 * @param receiveTime 事件发生的时间
 */
-int HumbleServer::EventLoop::handleRead(TimeStamp receiveTime)
+int HumbleServer::EventLoop::handleRead(TimeStamp now)
 {
     uint64_t one = 1;
     ssize_t n = ::read(wakeUpFd_, &one, sizeof(one)); //n代表读到的字节数
@@ -191,5 +197,5 @@ int HumbleServer::EventLoop::handleRead(TimeStamp receiveTime)
         printf("EventLoop::handleRead() reads %lld bytes instead of 8, error\n", n);
         assert(false);
     }
-    return FunctionResultType_Success;
+    return Success;
 }

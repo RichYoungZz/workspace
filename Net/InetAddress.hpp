@@ -9,6 +9,9 @@
 
 namespace HumbleServer {
 
+/**
+* @brief 网络地址类，对 sockaddr_in 的封装【变量类】
+*/
 class InetAddress {
 //函数
 public:
@@ -21,7 +24,7 @@ public:
     sockaddr_in getAddr() const;
 
 //变量
-public:
+private:
     sockaddr_in addr_;
     int port_;
     std::string ip_;

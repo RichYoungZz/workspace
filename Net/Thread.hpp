@@ -12,6 +12,9 @@
 
 namespace HumbleServer {
 
+/**
+* @brief 线程类，封装了线程的创建和运行，为确保One loop per thread而使用。
+*/
 class Thread {
 //函数
 public:
@@ -28,7 +31,7 @@ public:
 
     EventLoop *loop_; ///指向线程的loop
 
-    EventCallback callback_; ///线程回调函数 可有可无，看传不传
+    EventCallback callback_; ///线程主函数创建运行以后的回调函数 可有可无，看传不传
     pid_t tid_; ///线程id
 };
 

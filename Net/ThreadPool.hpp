@@ -5,12 +5,15 @@
 
 namespace HumbleServer{
 
+/**
+* @brief 线程池类，用于综合管理线程，主要是为了让网络库框架中每个模块都能有自己的抽象，其实作用不是很大，耦合在TcpServer中我感觉也可以【功能类】
+*/
 class ThreadPool{
 //函数
 public:
     ThreadPool(EventLoop* baseLoop, int numThreads = 0);
     ~ThreadPool() = default;
-    void start();
+    int start();
     EventLoop* getNextLoopFromRoundRobin();
 
     void setThreadNum(int numThreads) { numThreads_ = numThreads; }
@@ -22,7 +25,7 @@ public:
 
     EventLoop* baseLoop_; //主线程的EventLoop，当没有设置线程数量的时候，默认就是主线程的EventLoop完成所有工作
     int numThreads_; //线程数量
-}
+};
 
 }
 
@@ -66,7 +69,7 @@ EventLoop* HumbleServer::ThreadPool::getNextLoopFromRoundRobin() {
 /**
 * @brief 启动线程池，创建线程，创建EventLoop，将EventLoop放入loopsVector中
 */
-void HumbleServer::ThreadPool::start() {
+int HumbleServer::ThreadPool::start() {
     if(numThreads_ <= 0)
     {
         printf("numThreads_ <= 0, numThreads = %d\n", numThreads_);
@@ -88,4 +91,5 @@ void HumbleServer::ThreadPool::start() {
         printf("ThreadPool start success, i = %d, threads = %p, loop = %p\n", i, threadsVector[i], loop);
     }
     printf("ThreadPool start success, numThreads = %d\n", numThreads_);
+    return Success;
 }

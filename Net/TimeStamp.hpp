@@ -6,6 +6,9 @@
 
 namespace HumbleServer{
 
+/**
+* @brief 时间戳类，用于获取当前时间戳【变量类】
+*/
 class TimeStamp{
 //函数定义
 public:

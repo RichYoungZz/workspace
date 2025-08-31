@@ -10,6 +10,9 @@
 
 namespace HumbleServer{
 
+/**
+* @brief 套接字类，封装了fd，与bind、listen、accept等操作【变量类】
+*/
 class Socket {
 //函数定义
 public:
@@ -24,7 +27,7 @@ public:
     int accept(); //接受连接
 
 //变量定义
-public:
+private:
     int sockfd_;
     //在此不保存InetAddress，只专注套接字fd操作
 };

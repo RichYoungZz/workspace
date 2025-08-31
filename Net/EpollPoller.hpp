@@ -15,19 +15,22 @@
 
 namespace HumbleServer{
 
+/**
+* @brief 对epoll进行封装，监听已有的连接上有什么事件发生，由EventLoop调用。一个EpollPoller对应一个EventLoop 【功能类】
+*/
 class EpollPoller{
 //函数
 public:
     EpollPoller();
     ~EpollPoller() = default;
 
-    int updateChannel2Epoll(Channel* channel); //通过channel的events_判断关注的事件，根据Channel的status来判断状态
+    int updateChannel2Epoll(std::shared_ptr<Channel> channel, int cmd); //通过channel的events_判断关注的事件，根据Channel的status来判断状态
     int epoll(ChannelList* activeChannels, int timeoutMs = 1000);
 //变量
-public:
+private:
     int epollFd_; //epoll句柄
     int eventListSize_; //epoll返回的事件列表大小
-    std::unordered_map<int, Channel*> channelMap_; //Channel的fd和Channel的映射，用于epoll返回后，根据fd找到对应的Channel
+    std::unordered_map<int, std::shared_ptr<Channel> > channelMap_; //Channel的fd和Channel的映射，用于epoll返回后，根据fd找到对应的Channel
     std::vector<epoll_event> eventList_; //epoll返回的事件列表
 };
 
@@ -54,17 +57,17 @@ HumbleServer::EpollPoller::EpollPoller()
  * param[in]  cmd     输入参数 - ChannelStatus 表示Channel的状态 添加/修改/删除
  * @return FunctionResultType
  */
-int HumbleServer::updateChannel2Epoll(Channel* channel, int cmd)
+int HumbleServer::updateChannel2Epoll(std::shared_ptr<Channel> channel, int cmd)
 {
     if(channel == nullptr)
     {
         printf("channel is nullptr\n");
-        return FunctionResultType_Failed;
+        return Failed;
     }
     ///Acceptor也通过传入Channel来注册
     struct epoll_event event;
     bzero(&event, sizeof(event));
-    event.data.ptr = channel; ///存储额外的Channel信息
+    event.data.ptr = channel.get(); ///存储额外的Channel信息
     event.data.fd = channel->getFd();
     event.events = channel->getFocusEvent();
 
@@ -80,7 +83,7 @@ int HumbleServer::updateChannel2Epoll(Channel* channel, int cmd)
             if(epoll_ctl(epollFd_, EPOLL_CTL_ADD, event.data.fd, &event) < 0)
             {
                 printf("epoll add error\n");
-                return FunctionResultType_Failed;
+                return Failed;
             }
             channelMap_[event.data.fd] = channel; ///将Channel的fd和Channel的映射关系存入channelMap_中
             break;
@@ -88,22 +91,22 @@ int HumbleServer::updateChannel2Epoll(Channel* channel, int cmd)
             if(epoll_ctl(epollFd_, EPOLL_CTL_MOD, event.data.fd, &event) < 0)
             {
                 printf("epoll mod error\n");
-                return FunctionResultType_Failed;
+                return Failed;
             }
             break;
         case ChannelStatus_Deleted:
             if(epoll_ctl(epollFd_, EPOLL_CTL_DEL, event.data.fd, &event) < 0)
             {
                 printf("epoll del error\n");
-                return FunctionResultType_Failed;
+                return Failed;
             }
             channelMap_.erase(event.data.fd); ///删除channelMap_中的映射关系
             break;
         default:
             printf("epoll update error, unsupport cmd: %d\n", cmd);
-            return FunctionResultType_Failed;
+            return Failed;
     }
-    return FunctionResultType_Success;
+    return Success;
 }
 
 int HumbleServer::epoll(ChannelList* activeChannels, int timeoutMs)
@@ -113,13 +116,13 @@ int HumbleServer::epoll(ChannelList* activeChannels, int timeoutMs)
     if(ret < 0)
     {
         printf("epoll wait error\n");
-        return FunctionResultType_Failed;
+        return Failed;
     }
     //将活跃的Channel存入activeChannels
     for(int i = 0; i < eventCount; i++)
     {
         Channel* channel = (Channel*)eventList_[i].data.ptr;
-        if(channel == nullptr)
+        if(channel == nullptr || channelMap_.find(channel->getFd()) == channelMap_.end())
         {
             printf("channel is nullptr\n");
             continue;
@@ -133,5 +136,5 @@ int HumbleServer::epoll(ChannelList* activeChannels, int timeoutMs)
         eventListSize_ <<= 1; 
         eventList_.resize(eventListSize_);
     }
-    return FunctionResultType_Success;
+    return Success;
 }
