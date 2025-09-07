@@ -4,6 +4,14 @@
 #define OUT OUT
 #define INOUT INOUT
 
+#include <functional>
+#include <memory>
+
+#include "Channel.hpp"
+#include "TimeStamp.hpp"
+#include "Buffer.hpp"
+#include "TcpConnection.hpp"
+
 namespace HumbleServer{
 
 using EventCallbackWithTimeStamp = std::function<int(TimeStamp)>;
@@ -24,7 +32,7 @@ using highWaterMarkCallback = std::function<void(TcpConnectionPtr&, size_t)>;
 typedef enum FunctionResultType{
     Success = 0,
     Fail = 1,
-
+    Error = 2,
     //记录所有结果数量
     FunctionResultType_All,
 };

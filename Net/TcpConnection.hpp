@@ -48,6 +48,8 @@ public:
     int connectFinishCallBack(); //连接建立后，baseLoop执行的回调。主要是TcpConnection对象创建后，在TcpSever里面设置好回调以后，再通过该callback使能Read事件，开始接收数据。
 
     int getFd() const { return socket_->getFd(); } //获取SocketFd，以此来唯一标识一个TcpConnection
+
+    void shutdown() {handleClose();} //关闭写端
 //变量
 private:
     HumbleServer::Buffer outputBuffer_; //发送缓冲区，send调用满了以后，会放到这里且注册EPOLLOUT，等待系统TCP缓冲区满以后触发EPOLLOUT事件回调handleWrite，把outputBuffer_中的数据发送出去。

@@ -1,6 +1,10 @@
 #pragma once
 
 #include <string>
+#include <vector>
+#include <sys/uio.h> // readv
+#include <unistd.h> // write
+#include <algorithm> // std::min
 
 #include "public.h"
 
@@ -22,8 +26,10 @@ public:
     int append(const char* data, size_t len); //往缓冲区里面添加数据，与readFromFd配合使用，这里面会集成扩容策略
     int clearBuffer(); //清空缓冲区
 
-    int readableBytes() const { return writeEndIndex_ - readStartIndex_; } //可读字节数
+    int readableBytes() const { return writeStartIndex_ - readStartIndex_; } //可读字节数
     int writableBytes() const { return buffer_.size() - writeStartIndex_; } //可写字节数
+
+    std::string getAsString();
 
 //变量
 private:
@@ -156,4 +162,12 @@ int HumbleServer::Buffer::clearBuffer() {
     readStartIndex_ = 0;
     writeStartIndex_ = 0;
     return len;
+}
+
+/**
+ * @brief 获取缓冲区中的数据 
+*/
+int HumbleServer::Buffer::getAsString() {
+    std::string str(buffer_.begin() + readStartIndex_, buffer_.begin() + writeStartIndex_); //迭代器范围构造
+    return str;
 }
