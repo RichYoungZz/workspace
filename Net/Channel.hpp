@@ -39,7 +39,7 @@ public:
     void setNeedToHandleEvent(int event) {needToHandleEvent_ = event;}; // 由EpollPoller设置该Channel实际发生事件
     void setEventHandler(int eventType, EventCallbackWithTimeStamp eventHandler) {eventHandlerMap_[eventType] = std::move(eventHandler);}; //设置事件处理函数
     void setEventLoop(EventLoop * loop) {ownerLoop_ = loop;}; //设置所属EventLoop
-    void setTie() {tie_ = std::shared_from_this();}; //设置tie_
+    void setTie(std::shared_ptr<void> tie) {tie_ = tie;}; //设置tie_
 
     /* 真正处理事件*/
     FunctionResultType handleEvent();
@@ -55,7 +55,7 @@ private:
     EventLoop * ownerLoop_; //当前Channel所属的EventLoop
     std::unordered_map<int, EventCallbackWithTimeStamp > eventHandlerMap_; //事件处理函数map
 
-    std::weak_ptr<Channel> tie_; //用于观测Channel的生命周期
+    std::weak_ptr<void> tie_; //用于观测Channel的生命周期
 };
 
 } 

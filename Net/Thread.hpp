@@ -24,7 +24,7 @@ public:
     void threadMain(); //线程主函数
     EventLoop* start(); //启动线程
 //变量
-public:
+private:
     std::mutex mutex_;
     std::condition_variable cond_;
     std::shared_ptr<std::thread> threadPtr_; ///指向创建的线程 不能用变量，线程被创建以后就会马上执行

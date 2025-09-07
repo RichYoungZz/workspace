@@ -22,6 +22,9 @@ public:
     int append(const char* data, size_t len); //往缓冲区里面添加数据，与readFromFd配合使用，这里面会集成扩容策略
     int clearBuffer(); //清空缓冲区
 
+    int readableBytes() const { return writeEndIndex_ - readStartIndex_; } //可读字节数
+    int writableBytes() const { return buffer_.size() - writeStartIndex_; } //可写字节数
+
 //变量
 private:
     std::vector<char> buffer_;
@@ -55,7 +58,7 @@ HumbleServer::Buffer::Buffer() {
 * @return -1:失败，>0:write出的字节数
 */
 int HumbleServer::Buffer::writeToFd(int fd) {
-    size_t writeLen = ::write(fd, buffer_.begin() + readStartIndex_, readEndIndex_ - readStartIndex_);
+    size_t writeLen = ::write(fd, buffer_.begin() + readStartIndex_, readableBytes());
     if(writeLen <= 0) {
         printf("write error, writeLen = %d\n", writeLen);
     }
@@ -110,19 +113,37 @@ int HumbleServer::Buffer::readFromFd(int fd) {
 * @return int 成功返回Success，失败返回Error
 */
 int HumbleServer::Buffer::append(const char* data, size_t len) {
-    if(len <= 0 || data == nullptr) return;
-    if(len + writeStartIndex_ <= buffer_.size()) {
-        ///memcpy只是单纯复制字节，copy函数会调用构造和析构，可以让资源有完整生命周期，当然char的话都无所谓
-        //std::copy(data, data + len, buffer_.begin() + writeStartIndex_);
-        memcpy(buffer_.begin() + writeStartIndex_, data, len);
-        writeStartIndex_ += len; //更新游标
+    if(len <= 0 || data == nullptr)
+    {
+        return Error;
     }
-    else {
-        ///扩容
-        buffer_.resize(writeStartIndex_ + len); //扩容
-        memcpy(buffer_.begin() + writeStartIndex_, data, len);
-        writeStartIndex_ += len; //更新游标
+    
+    //当前缓冲区剩余空间不够，考虑是否
+    if(len + writeStartIndex_ > buffer_.size()) 
+    {
+        /*
+            |-------------------------|---------------------|-------------|
+            0                      readStartIndex_      writeStartIndex_  buffer_.size()
+            可能先前发送了一部分，readStartIndex_ != 0，
+            此时如果把readStartIndex移到0以后，剩余空间可以容纳len，那么先把[readStartIndex_, writeStartIndex_)的数据移动到[0, len)]
+            此时不需要扩容
+        */
+        if(writeStartIndex_ - readStartIndex_ + len <= buffer_.size()) //如果当前缓冲区剩余空间足够，则直接复制，但需要先数据左移
+        {
+            std::copy(buffer_.begin() + readStartIndex_, buffer_.begin() + writeStartIndex_, buffer_.begin());
+            writeStartIndex_ -= readStartIndex_;
+            readStartIndex_ = 0;
+        } 
+        else
+        {
+            ///扩容到刚好能容纳writeStartIndex_ + len的空间，然后再复制，这样也不需要左移了
+            buffer_.resize(writeStartIndex_ + len); 
+        }
+        
     }
+    //else  len + writeStartIndex_ <= buffer_.size();没超过，直接复制即可，不需要任何处理
+    std::copy(data, data + len, buffer_.begin() + writeStartIndex_);//memcpy只是单纯的复制字节，无构造与析构，且不能处理内存重叠的复制，只能处理两块独立内存
+    writeStartIndex_ += len; //更新游标
     return Success;
 }
 
@@ -131,7 +152,7 @@ int HumbleServer::Buffer::append(const char* data, size_t len) {
 * @return int 清空的字节数
 */
 int HumbleServer::Buffer::clearBuffer() {
-    int len = writeEndIndex_ - readStartIndex_;
+    int len = readableBytes();
     readStartIndex_ = 0;
     writeStartIndex_ = 0;
     return len;

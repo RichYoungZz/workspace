@@ -41,6 +41,7 @@ public:
     int updateChannel(std::shared_ptr<Channel> channel, int cmd); //更新Channel到epoll
 
     int runInLoop(EventCallback cb); //在当前线程的EventLoop中执行cb
+    int queueInLoop(EventCallback cb); //在当前线程的EventLoop中执行cb
 
     int handleRead(TimeStamp now); //处理唤醒事件 这里是被其他线程唤醒的时候，从EpollPoller的poll中跳出，执行callback_里的函数，不读的话会一直被唤醒
     int wakeup(); //唤醒EventLoop
@@ -157,17 +158,26 @@ int HumbleServer::EventLoop::runInLoop(EventCallback cb)
     {
         cb();
     }
-    else//说明当前线程不是EventLoop所在的线程，添加到callbacks_里面，到对应线程中再执行
+    else//说明当前线程不是EventLoop所在的线程，添加到callbacks_里面，到对应线程中再执行。也正因为不在同一个线程，所以需要加锁和唤醒
     {
-        ///首先lock_guard实际上调用的也是mutex的lock和unlock，但是lock_guard的构造函数和析构函数会自动调用，所以不需要手动unlock。同时lock和unlock都是原子操作
-        {
-            ///这里减少一个queueInLoop的函数调用
-            std::lock_guard<std::mutex> lock(mutex_);
-            callbacks_.emplace_back(std::move(cb));
-        }
-        wakeup(); //唤醒EventLoop
+        queueInLoop(cb);
     }
     return Success;
+}
+
+/*
+* @brief 在当前线程的EventLoop中将cb添加到任务队列
+* @param cb 需要注册的回调函数
+*/
+int queueInLoop(EventCallback cb)
+{
+    ///首先lock_guard实际上调用的也是mutex的lock和unlock，但是lock_guard的构造函数和析构函数会自动调用，所以不需要手动unlock。同时lock和unlock都是原子操作
+    {
+        ///这里减少一个queueInLoop的函数调用
+        std::lock_guard<std::mutex> lock(mutex_);
+        callbacks_.emplace_back(std::move(cb));
+    }
+    wakeup(); //唤醒EventLoop
 }
 
 /**

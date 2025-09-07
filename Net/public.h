@@ -8,7 +8,17 @@ namespace HumbleServer{
 
 using EventCallbackWithTimeStamp = std::function<int(TimeStamp)>;
 using EventCallback = std::function<int()>;
+using newConnectionCallback = std::function<int(int)>;
 using ChannelList = std::vector<Channel*>;
+
+using TcpConnectionPtr = std::shared_ptr<TcpConnection>;
+
+using messageCallback = std::function<void(TcpConnectionPtr&, Buffer*, TimeStamp)>;
+using connectionCallback = std::function<void(TcpConnectionPtr&)>;
+using closeCallback = std::function<void(TcpConnectionPtr&)>;
+using writeCompleteCallback = std::function<void(TcpConnectionPtr&)>;
+using errorCallback = std::function<void(TcpConnectionPtr&)>;
+using highWaterMarkCallback = std::function<void(TcpConnectionPtr&, size_t)>;
 
 //函数返回值
 typedef enum FunctionResultType{

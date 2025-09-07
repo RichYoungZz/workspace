@@ -71,34 +71,52 @@ int HumbleServer::updateChannel2Epoll(std::shared_ptr<Channel> channel, int cmd)
     event.data.fd = channel->getFd();
     event.events = channel->getFocusEvent();
 
-    if(channelMap_.find(event.data.fd) != channelMap_.end() && cmd == ChannelStatus_Added) ///已经在channelMap_中，不能重复添加，更新即可
+    if(channelMap_.find(event.data.fd) == channelMap_.end() && cmd != EPOLL_CTL_ADD) ///不是添加且不在map里面，说明不存在，不能操作
     {
-        cmd = ChannelStatus_Modified;
+        printf("channel %d not exist, can't update it\n", event.data.fd);
+        return Failed;
+    }
+
+    if(channelMap_.find(event.data.fd) != channelMap_.end() && cmd == EPOLL_CTL_ADD) ///已经在channelMap_中，不能重复添加，更新即可
+    {
+        cmd = EPOLL_CTL_MOD;
         printf("channel %d already exist, update it\n", event.data.fd);
     }
 
     switch(cmd)
     {
-        case ChannelStatus_Added: ///EpollPoller新增Channel
+        case EPOLL_CTL_ADD: ///EpollPoller新增Channel
             if(epoll_ctl(epollFd_, EPOLL_CTL_ADD, event.data.fd, &event) < 0)
             {
                 printf("epoll add error\n");
                 return Failed;
             }
+            else
+            {
+                printf("epoll add success, fd = %d\n",  event.data.fd);
+            }
             channelMap_[event.data.fd] = channel; ///将Channel的fd和Channel的映射关系存入channelMap_中
             break;
-        case ChannelStatus_Modified:
+        case EPOLL_CTL_MOD:
             if(epoll_ctl(epollFd_, EPOLL_CTL_MOD, event.data.fd, &event) < 0)
             {
                 printf("epoll mod error\n");
                 return Failed;
             }
+            else
+            {
+                printf("epoll mod success, fd = %d\n",  event.data.fd);
+            }
             break;
-        case ChannelStatus_Deleted:
+        case EPOLL_CTL_DEL:
             if(epoll_ctl(epollFd_, EPOLL_CTL_DEL, event.data.fd, &event) < 0)
             {
                 printf("epoll del error\n");
                 return Failed;
+            }
+            else
+            {
+                printf("epoll del success, fd = %d\n",  event.data.fd);
             }
             channelMap_.erase(event.data.fd); ///删除channelMap_中的映射关系
             break;

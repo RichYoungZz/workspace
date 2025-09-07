@@ -19,14 +19,14 @@ public:
     ~Acceptor() = default;
 
     int start();
-    void setNewConnectionCallback(EventCallback &callback);
+    void setNewConnectionCallback(newConnectionCallback &callback);
     int accept(TimeStamp now);
 //变量
 private:
     EventLoop* loop_;
     std::shared_ptr<Socket> acceptSocket_; ///accpet需要关闭fd，放析构函数里面，由智能指针管理生命周期，自动关闭
     std::shared_ptr<Channel> acceptChannel_;
-    EventCallback newConnectionCallback_;
+    newConnectionCallback newConnectionCallback_;
 };
 
 }
@@ -70,6 +70,6 @@ void HumbleServer::Acceptor::setNewConnectionCallback(EventCallback& callback){
 int HumbleServer::Acceptor::accept(TimeStamp now){
     int connectFd = acceptSocket_->accept();
     printf("accept a new connection, fd = %d\n", connectFd);
-    newConnectionCallback_(&connectFd); //回调，把新连接注册到loop，传入的是connfd的指针
+    newConnectionCallback_(connectFd); //回调，把新连接注册到loop，传入的是connfd的指针
     return connectFd;
 }

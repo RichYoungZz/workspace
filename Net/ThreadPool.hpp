@@ -11,12 +11,12 @@ namespace HumbleServer{
 class ThreadPool{
 //函数
 public:
-    ThreadPool(EventLoop* baseLoop, int numThreads = 0);
+    ThreadPool(EventLoop* baseLoop);
     ~ThreadPool() = default;
     int start();
     EventLoop* getNextLoopFromRoundRobin();
 
-    void setThreadNum(int numThreads) { numThreads_ = numThreads; }
+    int setThreadNum(int numThreads);
 //变量
 public:
     std::vector<std::unique_ptr<Thread> > threadsVector;
@@ -34,8 +34,8 @@ public:
 /**
 * @brief 构造函数，初始化，此时就可以传入numThreads和baseLoop，numThreads可以不传后续再设置，baseLoop必须传
 */
-HumbleServer::ThreadPool::ThreadPool(EventLoop* baseLoop, int numThreads)
-    : baseLoop_(baseLoop), numThreads_(numThreads), next_(0) {
+HumbleServer::ThreadPool::ThreadPool(EventLoop* baseLoop)
+    : baseLoop_(baseLoop), numThreads_(0), next_(0) {
         threadsVector.clear();
         loopsVector.clear();
 
@@ -72,8 +72,8 @@ EventLoop* HumbleServer::ThreadPool::getNextLoopFromRoundRobin() {
 int HumbleServer::ThreadPool::start() {
     if(numThreads_ <= 0)
     {
-        printf("numThreads_ <= 0, numThreads = %d\n", numThreads_);
-        return;
+        printf("numThreads_ <= 0, numThreads = %d, but dont worry\n", numThreads_);
+        return Success;
     }
 
     EventLoop* loop = nullptr;
@@ -91,5 +91,24 @@ int HumbleServer::ThreadPool::start() {
         printf("ThreadPool start success, i = %d, threads = %p, loop = %p\n", i, threadsVector[i], loop);
     }
     printf("ThreadPool start success, numThreads = %d\n", numThreads_);
+    return Success;
+}
+
+/**
+* @brief 设置线程数量，必须在start之前设置，否则会报错
+* @param numThreads 线程数量
+*/
+int HumbleServer::ThreadPool::setThreadNum(int numThreads)
+{
+    if(numThreads > 0 && threadsVector.size() != 0 && loopsVector.size() != 0)
+    {
+        //说明线程池已经启动了，不能再设置线程数量了
+        printf("ThreadPool has started, can't set numThreads\n");
+        return Failed;
+    }
+    else
+    {
+        numThreads_ = numThreads;
+    }
     return Success;
 }

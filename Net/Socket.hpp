@@ -18,9 +18,19 @@ class Socket {
 public:
     explicit Socket(int sockfd) : sockfd_(sockfd) {} //避免隐式转换，必须显式调用构造函数
     Socket() {sockfd_ = ::socket(AF_INET, SOCK_STREAM, 0);}; //也可以不由外部传入，自己创建一个socket
-    ~Socket() { ::close(sockfd_); sockfd = -1; }  //Socket对象被释放以后，其持有的sockfd也需要被关闭
+    ~Socket() { 
+        if(sockfd_ > 0)
+        {
+            ::close(sockfd_); sockfd = -1;
+        }
+        else
+        {
+            printf("fd = %d, already close\n", sockfd_);
+        }
+    }  //Socket对象被释放以后，其持有的sockfd也需要被关闭
 
     int getFd() const { return sockfd_; }
+    int setFd(int fd) { sockfd_ = fd; }
 
     int bind(const InetAddress& addr); //绑定
     int listen(int establishedQueueSize = 1024); //监听
