@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package api.bubble.v1;
+
+option go_package = "bubble/api/bubble/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.bubble.v1";
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+service Bubble {
+	rpc CreateBubble (CreateBubbleRequest) returns (CreateBubbleReply) {
+		option (google.api.http) = {
+		  post: "v1/create"
+		  body: "event"
+		};
+	};
+	rpc UpdateBubble (UpdateBubbleRequest) returns (UpdateBubbleReply) {
+		option (google.api.http) = {
+		  put: "v1/update"
+		  body: "event"
+		};
+	};
+	rpc DeleteBubble (DeleteBubbleRequest) returns (google.protobuf.Empty) {
+		option (google.api.http) = {
+		  delete: "v1/delete/{event.id}"
+		};
+	};
+	// rpc GetBubble (GetBubbleRequest) returns (GetBubbleReply);
+	rpc ListBubble (google.protobuf.Empty) returns (ListBubbleReply) {
+		option (google.api.http) = {
+		  get: "v1/list",
+		  additional_bindings {
+			post: "v1/list"
+			body: "*"
+		  }
+		};
+	};
+}
+
+message Event {
+	int32 id = 1;
+	string title = 2;
+	bool status = 3;
+}
+
+message CreateBubbleRequest {
+	Event event = 1;
+}
+message CreateBubbleReply {
+	Event event = 1;
+}
+
+message UpdateBubbleRequest {
+	Event event = 1;
+}
+message UpdateBubbleReply {
+	Event event = 1;
+}
+
+message DeleteBubbleRequest {
+	Event event = 1;
+}
+
+// 暂时不实现获取单个事件的接口
+// message GetBubbleRequest {}
+// message GetBubbleReply {}
+
+// 获取所有事件不需要传参
+// message ListBubbleRequest {}
+message ListBubbleReply {
+	repeated Event events = 1;
+}
